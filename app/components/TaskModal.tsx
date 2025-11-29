@@ -105,7 +105,7 @@ export default function TaskModal({ open, onOpenChange, selectedDate, editingTas
               : 'Add a new task with a date range to your calendar.'}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4 bg-amber-500 ">
+        <div className="grid gap-4 py-4  ">
           <div className="grid gap-2">
             <Label htmlFor="name">Task Name</Label>
             <Input
