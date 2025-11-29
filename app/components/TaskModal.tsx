@@ -1,62 +1,172 @@
 'use client'
 import { Task, TaskCategory } from "@/app/lib/types";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { format, startOfDay } from "date-fns";
 
 interface TaskModalProps {
-  show: boolean;
-  onClose: () => void;
-  onSave: (task: Omit<Task, 'id' | 'startDate' | 'endDate'>) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  selectedDate: Date | null;
+  editingTask: Task | null;
+  onSave: (task: Omit<Task, 'id'>) => void;
+  onDelete?: () => void;
 }
 
-export default function TaskModal({ show, onClose, onSave }: TaskModalProps) {
+export default function TaskModal({ open, onOpenChange, selectedDate, editingTask, onSave, onDelete }: TaskModalProps) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState<TaskCategory>("To Do");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
-  if (!show) {
-    return null;
-  }
+  useEffect(() => {
+    if (open) {
+      if (editingTask) {
+        // Populate form with editing task data
+        setName(editingTask.name);
+        setCategory(editingTask.category);
+        setStartDate(format(editingTask.startDate, 'yyyy-MM-dd'));
+        setEndDate(format(editingTask.endDate, 'yyyy-MM-dd'));
+      } else if (selectedDate) {
+        // Populate with selected date for new task
+        const dateStr = format(selectedDate, 'yyyy-MM-dd');
+        setStartDate(dateStr);
+        setEndDate(dateStr);
+        setName("");
+        setCategory("To Do");
+      }
+    }
+  }, [selectedDate, editingTask, open]);
 
   const handleSave = () => {
-    onSave({ name, category });
+    if (!name.trim() || !startDate || !endDate) {
+      return;
+    }
+
+    let start = startOfDay(new Date(startDate));
+    let end = startOfDay(new Date(endDate));
+
+    // Ensure end date is after or equal to start date
+    if (end < start) {
+      [start, end] = [end, start];
+    }
+
+    onSave({
+      name,
+      category,
+      startDate: start,
+      endDate: end,
+      isContinue:false
+    });
+
+    // Reset form
     setName("");
     setCategory("To Do");
+    setStartDate("");
+    setEndDate("");
+    onOpenChange(false);
+  };
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      // Reset form when closing
+      setName("");
+      setCategory("To Do");
+      setStartDate("");
+      setEndDate("");
+    }
+    onOpenChange(newOpen);
+  };
+
+  const handleDelete = () => {
+    if (onDelete && editingTask) {
+      onDelete();
+    }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-lg">
-        <h2 className="text-xl font-bold mb-4">Create Task</h2>
-        <div className="mb-4">
-          <label className="block mb-2">Task Name</label>
-          <input
-            type="text"
-            className="w-full border rounded-lg p-2"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-[425px]  ">
+        <DialogHeader>
+          <DialogTitle>{editingTask ? 'Edit Task' : 'Create Task'}</DialogTitle>
+          <DialogDescription>
+            {editingTask 
+              ? 'Update your task details and date range.' 
+              : 'Add a new task with a date range to your calendar.'}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4 bg-amber-500 ">
+          <div className="grid gap-2">
+            <Label htmlFor="name">Task Name</Label>
+            <Input
+              id="name"
+              placeholder="Enter task name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="category">Category</Label>
+            <select
+              id="category"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              value={category}
+              onChange={(e) => setCategory(e.target.value as TaskCategory)}
+            >
+              <option>To Do</option>
+              <option>In Progress</option>
+              <option>Review</option>
+              <option>Completed</option>
+            </select>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="startDate">Start Date</Label>
+            <Input
+              id="startDate"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="endDate">End Date</Label>
+            <Input
+              id="endDate"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              min={startDate}
+            />
+          </div>
         </div>
-        <div className="mb-4">
-          <label className="block mb-2">Category</label>
-          <select
-            className="w-full border rounded-lg p-2"
-            value={category}
-            onChange={(e) => setCategory(e.target.value as TaskCategory)}
-          >
-            <option>To Do</option>
-            <option>In Progress</option>
-            <option>Review</option>
-            <option>Completed</option>
-          </select>
-        </div>
-        <div className="flex justify-end">
-          <button onClick={onClose} className="mr-2 px-4 py-2 bg-gray-200 rounded-lg">
+        <DialogFooter>
+          {editingTask && onDelete && (
+            <Button 
+              variant="destructive" 
+              onClick={handleDelete}
+              className="mr-auto"
+            >
+              Delete
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Cancel
-          </button>
-          <button onClick={handleSave} className="px-4 py-2 bg-blue-500 text-white rounded-lg">
-            Save
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+          <Button onClick={handleSave} disabled={!name.trim() || !startDate || !endDate}>
+            {editingTask ? 'Update Task' : 'Save Task'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

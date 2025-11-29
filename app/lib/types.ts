@@ -7,4 +7,7 @@ export interface Task {
   category: TaskCategory;
   startDate: Date;
   endDate: Date;
+  isEnd?:Boolean;
+  isStart?:Boolean;
+  isContinue:Boolean;
 }
